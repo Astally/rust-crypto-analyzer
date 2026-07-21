@@ -12,12 +12,16 @@ use eframe::NativeOptions;
 async fn main() {
     dotenv().ok();
 
+    let coins = client::get_market_data()
+        .await
+        .expect("Failed to fetch market data");
+
     let options = NativeOptions::default();
 
     eframe::run_native(
         "Crypto Analyzer",
         options,
-        Box::new(|_cc| Ok(Box::new(CryptoApp::new()))),
+        Box::new(move |_cc| Ok(Box::new(CryptoApp::new(coins)))),
     )
     .expect("Failed to start GUI");
 }

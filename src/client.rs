@@ -30,8 +30,6 @@ pub async fn get_market_data() -> Result<Vec<Coin>> {
         .send()
         .await?;
 
-    println!("Status: {}", response.status());
-
     let safe_response = response.error_for_status()?;
 
     let json_response: Vec<Coin> = safe_response.json().await?;
