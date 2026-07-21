@@ -4,15 +4,20 @@ mod models;
 mod storage;
 mod ui;
 
+use crate::ui::CryptoApp;
 use dotenv::dotenv;
+use eframe::NativeOptions;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
 
-    let coins = match client::get_market_data().await {
-        Ok(coins) => println!("{:#?}", coins),
+    let options = NativeOptions::default();
 
-        Err(err) => eprintln!("Failed to fetch market data: {err}"),
-    };
+    eframe::run_native(
+        "Crypto Analyzer",
+        options,
+        Box::new(|_cc| Ok(Box::new(CryptoApp::new()))),
+    )
+    .expect("Failed to start GUI");
 }
