@@ -1,3 +1,5 @@
+use std::format;
+
 use crate::models::Coin;
 use eframe::egui;
 
@@ -14,31 +16,51 @@ impl CryptoApp {
 impl eframe::App for CryptoApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::Grid::new("coins_table").show(ui, |ui| {
-                ui.heading("Rank");
-                ui.heading("Symbol");
-                ui.heading("Name");
-                ui.heading("Price");
-                ui.heading("24h %");
-                ui.heading("Market Cap");
-                ui.heading("Volume");
+            ui.vertical_centered(|ui| {
+                ui.heading("Top 10 Cryptocurrencies");
+            });
+            ui.add_space(10.0);
 
-                ui.end_row();
-
-                for coin in &self.coins {
-                    ui.label(&coin.market_cap_rank.to_string());
-                    ui.label(&coin.symbol);
-                    ui.label(&coin.name);
-                    ui.label(coin.current_price.to_string());
-                    ui.label(coin.price_change_percentage_24h.to_string());
-                    ui.label(format_large_number(coin.market_cap));
-                    ui.label(format_large_number(coin.total_volume));
-
-                    ui.separator();
+            egui::Grid::new("coins_table")
+                .spacing([20.0, 8.0])
+                .striped(true)
+                .show(ui, |ui| {
+                    //headers
+                    ui.strong("Rank");
+                    ui.strong("Symbol");
+                    ui.strong("Name");
+                    ui.strong("Price");
+                    ui.strong("24h %");
+                    ui.strong("Market Cap");
+                    ui.strong("Volume");
 
                     ui.end_row();
-                }
-            });
+
+                    // data rows
+                    for coin in &self.coins {
+                        ui.label(&coin.market_cap_rank.to_string());
+                        ui.label(&coin.symbol);
+                        ui.label(&coin.name);
+
+                        ui.label(format!("${:.2}", coin.current_price));
+
+                        let percent_text = format_percentage(coin.price_change_percentage_24h);
+                        if coin.price_change_percentage_24h > 0.0 {
+                            ui.label(
+                                egui::RichText::new(percent_text).color(egui::Color32::LIGHT_GREEN),
+                            );
+                        } else {
+                            ui.label(
+                                egui::RichText::new(percent_text).color(egui::Color32::LIGHT_RED),
+                            );
+                        }
+
+                        ui.label(format_large_number(coin.market_cap));
+                        ui.label(format_large_number(coin.total_volume));
+
+                        ui.end_row();
+                    }
+                });
         });
     }
 }
@@ -56,5 +78,10 @@ fn format_large_number(large_number: u64) -> String {
         number = large_number.to_string()
     };
 
+    number
+}
+
+fn format_percentage(percent_number: f64) -> String {
+    let number = format!("{:.2}%", percent_number);
     number
 }
