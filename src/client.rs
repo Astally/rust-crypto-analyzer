@@ -10,11 +10,9 @@ const DEFAULT_CURRENCY: &str = "usd";
 
 const DEFAULT_ORDER: &str = "market_cap_desc";
 
-const DEFAULT_PER_PAGE: u32 = 10;
-
 const DEFAULT_PAGE: u32 = 1;
 
-pub async fn get_market_data() -> Result<Vec<Coin>> {
+pub async fn get_market_data(per_page: u32) -> Result<Vec<Coin>> {
     let api_key = env::var("API_KEY")?;
 
     let mut headers = HeaderMap::new();
@@ -24,7 +22,7 @@ pub async fn get_market_data() -> Result<Vec<Coin>> {
 
     let response = client
         .get(format!(
-            "{BASE_URL}?vs_currency={DEFAULT_CURRENCY}&order={DEFAULT_ORDER}&per_page={DEFAULT_PER_PAGE}&page={DEFAULT_PAGE}"
+            "{BASE_URL}?vs_currency={DEFAULT_CURRENCY}&order={DEFAULT_ORDER}&per_page={per_page}&page={DEFAULT_PAGE}"
         ))
         .headers(headers)
         .send()

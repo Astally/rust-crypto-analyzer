@@ -8,11 +8,15 @@ use crate::ui::CryptoApp;
 use dotenv::dotenv;
 use eframe::NativeOptions;
 
+const DEFAULT_PER_PAGE: u32 = 10;
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
 
-    let coins = client::get_market_data()
+    let per_page = DEFAULT_PER_PAGE;
+
+    let coins = client::get_market_data(per_page)
         .await
         .expect("Failed to fetch market data");
 

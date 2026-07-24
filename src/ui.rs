@@ -3,13 +3,19 @@ use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
 use thousands::Separable;
 
+const DEFAULT_PER_PAGE: u32 = 10;
+
 pub struct CryptoApp {
     coins: Vec<Coin>,
+    per_page: u32,
 }
 
 impl CryptoApp {
     pub fn new(coins: Vec<Coin>) -> Self {
-        CryptoApp { coins }
+        CryptoApp {
+            coins,
+            per_page: DEFAULT_PER_PAGE,
+        }
     }
 }
 
@@ -17,8 +23,23 @@ impl eframe::App for CryptoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("Top 10 Cryptocurrencies");
+                ui.heading("Crypto Market");
             });
+
+            ui.add_space(10.0);
+
+            ui.horizontal(|ui| {
+                ui.button("Refresh");
+                egui::ComboBox::from_label("Coins")
+                    .selected_text(self.per_page.to_string())
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.per_page, 10, "10");
+                        ui.selectable_value(&mut self.per_page, 20, "20");
+                        ui.selectable_value(&mut self.per_page, 50, "50");
+                        ui.selectable_value(&mut self.per_page, 100, "100");
+                    });
+            });
+
             ui.add_space(10.0);
 
             // build professional table
