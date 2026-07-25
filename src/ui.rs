@@ -130,6 +130,7 @@ impl CryptoApp {
                     ui.selectable_value(&mut self.sort_order, SortOrder::Descending, "Descending");
                 });
 
+            // search box
             ui.add(
                 egui::TextEdit::singleline(&mut self.search_query)
                     .hint_text("Search by name or symbol...")
@@ -176,7 +177,7 @@ impl CryptoApp {
                 });
             })
             .body(|body| {
-                let filtered_coins = self.search_coins();
+                let filtered_coins = self.filtered_coins();
 
                 // populate rows
                 body.rows(20.0, filtered_coins.len(), |mut row| {
@@ -224,17 +225,46 @@ impl CryptoApp {
             });
     }
 
-    fn search_coins(&self) -> Vec<&Coin> {
+    fn filtered_coins(&self) -> Vec<&Coin> {
         let query = self.search_query.trim().to_lowercase();
 
-        self.coins
+        let mut coins: Vec<&Coin> = self
+            .coins
             .iter()
             .filter(|coin| {
                 query.is_empty()
                     || coin.name.to_lowercase().contains(&query)
                     || coin.symbol.to_lowercase().contains(&query)
             })
-            .collect()
+            .collect();
+
+        match self.sort_by {
+            SortBy::Rank => {
+                coins.sort_by(|a, b| a.market_cap_rank.cmp(&b.market_cap_rank));
+            }
+
+            SortBy::Price => {
+                coins.sort_by(|a, b| b.current_price.partial_cmp(&a.current_price).unwrap());
+            }
+
+            SortBy::MarketCap => {
+                coins.sort_by(|a, b| b.market_cap.partial_cmp(&a.market_cap).unwrap());
+            }
+
+            SortBy::Volume => {
+                coins.sort_by(|a, b| b.total_volume.partial_cmp(&a.total_volume).unwrap());
+            }
+
+            SortBy::Change24h => {
+                coins.sort_by(|a, b| {
+                    b.price_change_percentage_24h
+                        .partial_cmp(&a.price_change_percentage_24h)
+                        .unwrap()
+                });
+            }
+        }
+
+        coins
     }
 }
 
