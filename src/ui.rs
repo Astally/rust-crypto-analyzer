@@ -7,8 +7,6 @@ use std::cmp::Ordering;
 use thousands::Separable;
 use tokio::sync::mpsc::{Receiver, Sender};
 
-const DEFAULT_PER_PAGE: u32 = 10;
-
 pub struct CryptoApp {
     coins: Vec<Coin>,
     per_page: u32,
@@ -17,8 +15,10 @@ pub struct CryptoApp {
     sort_by: SortBy,
     sort_order: SortOrder,
 
-    tx: Sender<Vec<Coin>>,
-    rx: Receiver<Vec<Coin>>,
+    tx: Sender<anyhow::Result<Vec<Coin>>>,
+    rx: Receiver<anyhow::Result<Vec<Coin>>>,
+
+    error_message: Option<String>,
 }
 
 #[derive(Default, PartialEq)]
@@ -39,20 +39,30 @@ enum SortOrder {
 }
 
 impl CryptoApp {
-    pub fn new(coins: Vec<Coin>, tx: Sender<Vec<Coin>>, rx: Receiver<Vec<Coin>>) -> Self {
+    pub fn new(
+        coins: Vec<Coin>,
+        tx: Sender<anyhow::Result<Vec<Coin>>>,
+        rx: Receiver<anyhow::Result<Vec<Coin>>>,
+    ) -> Self {
         CryptoApp {
             coins,
-            per_page: DEFAULT_PER_PAGE,
+            per_page: 10,
             last_updated: Local::now(),
             search_query: String::new(),
             sort_by: SortBy::default(),
             sort_order: SortOrder::default(),
             rx,
             tx,
+            error_message: None,
         }
     }
 
     fn show_dashboard(&mut self, ui: &mut egui::Ui) {
+        if let Some(error) = &self.error_message {
+            ui.colored_label(Color32::RED, format!("Error: {error}"));
+            ui.add_space(5.0);
+        }
+
         ui.vertical_centered(|ui| {
             ui.heading("Crypto Market");
         });
@@ -76,18 +86,10 @@ impl CryptoApp {
                 let per_page = self.per_page;
 
                 tokio::spawn(async move {
-                    let res = get_market_data(per_page).await;
+                    let result = get_market_data(per_page).await;
 
-                    match res {
-                        Ok(coins) => {
-                            if let Err(error) = tx.send(coins).await {
-                                eprintln!("Failed to send data: {error}");
-                            }
-                        }
-
-                        Err(error) => {
-                            eprintln!("Failed to refresh data: {error}");
-                        }
+                    if let Err(error) = tx.send(result).await {
+                        eprintln!("Failed to send result: {error}");
                     }
                 });
             };
@@ -321,9 +323,18 @@ impl CryptoApp {
 
 impl eframe::App for CryptoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Ok(coins) = self.rx.try_recv() {
-            self.coins = coins;
-            self.last_updated = Local::now();
+        if let Ok(result) = self.rx.try_recv() {
+            match result {
+                Ok(coins) => {
+                    self.coins = coins;
+                    self.last_updated = Local::now();
+                    self.error_message = None;
+                }
+
+                Err(error) => {
+                    self.error_message = Some(error.to_string());
+                }
+            }
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {

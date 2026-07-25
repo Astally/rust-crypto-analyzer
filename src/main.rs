@@ -9,15 +9,13 @@ use dotenv::dotenv;
 use eframe::NativeOptions;
 use tokio::sync::mpsc::channel;
 
-const DEFAULT_PER_PAGE: u32 = 10;
-
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
 
     let (tx, rx) = channel(1);
 
-    let coins = client::get_market_data(DEFAULT_PER_PAGE).await?;
+    let coins = client::get_market_data(10).await?;
 
     let options = NativeOptions::default();
 
