@@ -13,9 +13,20 @@ pub struct CryptoApp {
     per_page: u32,
     last_updated: chrono::DateTime<Local>,
     search_query: String,
+    sort_by: SortBy,
 
     tx: Sender<Vec<Coin>>,
     rx: Receiver<Vec<Coin>>,
+}
+
+#[derive(Default, PartialEq)]
+enum SortBy {
+    #[default]
+    Rank,
+    Price,
+    MarketCap,
+    Volume,
+    Change24h,
 }
 
 impl CryptoApp {
@@ -25,6 +36,7 @@ impl CryptoApp {
             per_page: DEFAULT_PER_PAGE,
             last_updated: Local::now(),
             search_query: String::new(),
+            sort_by: SortBy::default(),
             rx,
             tx,
         }
@@ -69,6 +81,8 @@ impl CryptoApp {
                     }
                 });
             };
+
+            // number of coins box
             egui::ComboBox::from_label("Coins")
                 .selected_text(self.per_page.to_string())
                 .show_ui(ui, |ui| {
@@ -76,6 +90,23 @@ impl CryptoApp {
                     ui.selectable_value(&mut self.per_page, 20, "20");
                     ui.selectable_value(&mut self.per_page, 50, "50");
                     ui.selectable_value(&mut self.per_page, 100, "100");
+                });
+
+            // sort box
+            egui::ComboBox::from_label("Sort")
+                .selected_text(match self.sort_by {
+                    SortBy::Rank => "Rank",
+                    SortBy::Price => "Price",
+                    SortBy::MarketCap => "Market Cap",
+                    SortBy::Volume => "Volume",
+                    SortBy::Change24h => "24h Change",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.sort_by, SortBy::Rank, "Rank");
+                    ui.selectable_value(&mut self.sort_by, SortBy::Price, "Price");
+                    ui.selectable_value(&mut self.sort_by, SortBy::MarketCap, "Market Cap");
+                    ui.selectable_value(&mut self.sort_by, SortBy::Volume, "Volume");
+                    ui.selectable_value(&mut self.sort_by, SortBy::Change24h, "24h Change");
                 });
 
             ui.add(
