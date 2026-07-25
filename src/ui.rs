@@ -11,11 +11,11 @@ const DEFAULT_PER_PAGE: u32 = 10;
 pub struct CryptoApp {
     coins: Vec<Coin>,
     per_page: u32,
+    last_updated: chrono::DateTime<Local>,
+    search_query: String,
 
     tx: Sender<Vec<Coin>>,
     rx: Receiver<Vec<Coin>>,
-
-    last_updated: chrono::DateTime<Local>,
 }
 
 impl CryptoApp {
@@ -24,6 +24,7 @@ impl CryptoApp {
             coins,
             per_page: DEFAULT_PER_PAGE,
             last_updated: Local::now(),
+            search_query: String::new(),
             rx,
             tx,
         }
@@ -35,7 +36,6 @@ impl CryptoApp {
         });
 
         //last update time
-
         ui.label(
             egui::RichText::new(format!(
                 "Last updated: {}",
@@ -77,6 +77,12 @@ impl CryptoApp {
                     ui.selectable_value(&mut self.per_page, 50, "50");
                     ui.selectable_value(&mut self.per_page, 100, "100");
                 });
+
+            ui.add(
+                egui::TextEdit::singleline(&mut self.search_query)
+                    .hint_text("Search by name or symbol...")
+                    .desired_width(200.0),
+            );
         });
 
         ui.add_space(10.0);
