@@ -1,26 +1,37 @@
+use crate::client::get_market_data;
 use crate::models::Coin;
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
 use thousands::Separable;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 const DEFAULT_PER_PAGE: u32 = 10;
 
 pub struct CryptoApp {
     coins: Vec<Coin>,
     per_page: u32,
+
+    tx: Sender<Vec<Coin>>,
+    rx: Receiver<Vec<Coin>>,
 }
 
 impl CryptoApp {
-    pub fn new(coins: Vec<Coin>) -> Self {
+    pub fn new(coins: Vec<Coin>, tx: Sender<Vec<Coin>>, rx: Receiver<Vec<Coin>>) -> Self {
         CryptoApp {
             coins,
             per_page: DEFAULT_PER_PAGE,
+            rx,
+            tx,
         }
     }
 }
 
 impl eframe::App for CryptoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if let Ok(coins) = self.rx.try_recv() {
+            self.coins = coins;
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.heading("Crypto Market");
@@ -29,7 +40,27 @@ impl eframe::App for CryptoApp {
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
-                ui.button("Refresh");
+                if ui.button("Refresh").clicked() {
+                    let tx = self.tx.clone();
+
+                    let per_page = self.per_page;
+
+                    tokio::spawn(async move {
+                        let res = get_market_data(per_page).await;
+
+                        match res {
+                            Ok(coins) => {
+                                if let Err(error) = tx.send(coins).await {
+                                    eprintln!("Failed to send data: {error}");
+                                }
+                            }
+
+                            Err(error) => {
+                                eprintln!("Failed to refresh data: {error}");
+                            }
+                        }
+                    });
+                };
                 egui::ComboBox::from_label("Coins")
                     .selected_text(self.per_page.to_string())
                     .show_ui(ui, |ui| {
@@ -97,16 +128,24 @@ impl eframe::App for CryptoApp {
                         });
 
                         // colorize percentage
-                        row.col(|ui| {
-                            let text = format_percentage(coin.price_change_percentage_24h);
-                            let color = if coin.price_change_percentage_24h > 0.0 {
-                                Color32::LIGHT_GREEN
-                            } else if coin.price_change_percentage_24h < 0.0 {
-                                Color32::LIGHT_RED
-                            } else {
-                                Color32::WHITE
-                            };
-                            ui.label(egui::RichText::new(text).color(color));
+                        row.col(|ui| match coin.price_change_percentage_24h {
+                            Some(change) => {
+                                let color = if change > 0.0 {
+                                    Color32::LIGHT_GREEN
+                                } else if change < 0.0 {
+                                    Color32::LIGHT_RED
+                                } else {
+                                    Color32::WHITE
+                                };
+
+                                ui.label(
+                                    egui::RichText::new(format_percentage(change)).color(color),
+                                );
+                            }
+
+                            None => {
+                                ui.label("-");
+                            }
                         });
 
                         row.col(|ui| {
@@ -121,17 +160,17 @@ impl eframe::App for CryptoApp {
     }
 }
 
-fn format_large_number(large_number: u64) -> String {
+fn format_large_number(large_number: f64) -> String {
     let number: String;
 
-    if large_number >= 1_000_000_000_000 {
-        number = format!("{:.2} T", (large_number as f64) / 1_000_000_000_000.0);
-    } else if large_number >= 1_000_000_000 {
-        number = format!("{:.2} B", (large_number as f64) / 1_000_000_000.0);
-    } else if large_number >= 1_000_000 {
-        number = format!("{:.2} M", (large_number as f64) / 1_000_000.0);
+    if large_number >= 1_000_000_000_000.0 {
+        number = format!("{:.2} T", large_number / 1_000_000_000_000.0);
+    } else if large_number >= 1_000_000_000.0 {
+        number = format!("{:.2} B", large_number / 1_000_000_000.0);
+    } else if large_number >= 1_000_000.0 {
+        number = format!("{:.2} M", large_number / 1_000_000.0);
     } else {
-        number = large_number.to_string();
+        number = large_number.separate_with_commas();
     }
 
     number

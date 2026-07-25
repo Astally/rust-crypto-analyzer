@@ -7,12 +7,15 @@ mod ui;
 use crate::ui::CryptoApp;
 use dotenv::dotenv;
 use eframe::NativeOptions;
+use tokio::sync::mpsc::channel;
 
 const DEFAULT_PER_PAGE: u32 = 10;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+
+    let (tx, rx) = channel(1);
 
     let per_page = DEFAULT_PER_PAGE;
 
@@ -25,7 +28,7 @@ async fn main() {
     eframe::run_native(
         "Crypto Analyzer",
         options,
-        Box::new(move |_cc| Ok(Box::new(CryptoApp::new(coins)))),
+        Box::new(move |_cc| Ok(Box::new(CryptoApp::new(coins, tx, rx)))),
     )
     .expect("Failed to start GUI");
 }
