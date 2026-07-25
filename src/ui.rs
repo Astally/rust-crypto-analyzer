@@ -14,6 +14,7 @@ pub struct CryptoApp {
     last_updated: chrono::DateTime<Local>,
     search_query: String,
     sort_by: SortBy,
+    sort_order: SortOrder,
 
     tx: Sender<Vec<Coin>>,
     rx: Receiver<Vec<Coin>>,
@@ -29,6 +30,13 @@ enum SortBy {
     Change24h,
 }
 
+#[derive(Default, PartialEq)]
+enum SortOrder {
+    #[default]
+    Ascending,
+    Descending,
+}
+
 impl CryptoApp {
     pub fn new(coins: Vec<Coin>, tx: Sender<Vec<Coin>>, rx: Receiver<Vec<Coin>>) -> Self {
         CryptoApp {
@@ -37,6 +45,7 @@ impl CryptoApp {
             last_updated: Local::now(),
             search_query: String::new(),
             sort_by: SortBy::default(),
+            sort_order: SortOrder::default(),
             rx,
             tx,
         }
@@ -107,6 +116,18 @@ impl CryptoApp {
                     ui.selectable_value(&mut self.sort_by, SortBy::MarketCap, "Market Cap");
                     ui.selectable_value(&mut self.sort_by, SortBy::Volume, "Volume");
                     ui.selectable_value(&mut self.sort_by, SortBy::Change24h, "24h Change");
+                });
+
+            // sort order box
+            egui::ComboBox::from_id_salt("sort_order")
+                .selected_text(match self.sort_order {
+                    SortOrder::Ascending => "Ascending",
+                    SortOrder::Descending => "Descending",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.sort_order, SortOrder::Ascending, "Ascending");
+
+                    ui.selectable_value(&mut self.sort_order, SortOrder::Descending, "Descending");
                 });
 
             ui.add(
