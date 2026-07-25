@@ -1,5 +1,6 @@
 use crate::client::get_market_data;
 use crate::models::Coin;
+use chrono::Local;
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
 use thousands::Separable;
@@ -13,6 +14,8 @@ pub struct CryptoApp {
 
     tx: Sender<Vec<Coin>>,
     rx: Receiver<Vec<Coin>>,
+
+    last_updated: Option<chrono::DateTime<Local>>,
 }
 
 impl CryptoApp {
@@ -20,6 +23,7 @@ impl CryptoApp {
         CryptoApp {
             coins,
             per_page: DEFAULT_PER_PAGE,
+            last_updated: Some(Local::now()),
             rx,
             tx,
         }
@@ -30,12 +34,25 @@ impl eframe::App for CryptoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if let Ok(coins) = self.rx.try_recv() {
             self.coins = coins;
+            self.last_updated = Some(Local::now());
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.heading("Crypto Market");
             });
+
+            //last update time
+            if let Some(time) = self.last_updated {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "Last updated: {}",
+                        time.format("%Y-%m-%d %H:%M:%S")
+                    ))
+                    .color(Color32::LIGHT_BLUE)
+                    .small(),
+                );
+            }
 
             ui.add_space(10.0);
 
