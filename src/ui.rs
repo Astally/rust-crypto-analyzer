@@ -177,7 +177,7 @@ impl CryptoApp {
                 });
             })
             .body(|body| {
-                let filtered_coins = self.filtered_coins();
+                let filtered_coins = self.get_filtered_coins();
 
                 // populate rows
                 body.rows(20.0, filtered_coins.len(), |mut row| {
@@ -225,7 +225,7 @@ impl CryptoApp {
             });
     }
 
-    fn filtered_coins(&self) -> Vec<&Coin> {
+    fn get_filtered_coins(&self) -> Vec<&Coin> {
         let query = self.search_query.trim().to_lowercase();
 
         let mut coins: Vec<&Coin> = self
@@ -238,27 +238,51 @@ impl CryptoApp {
             })
             .collect();
 
-        match self.sort_by {
-            SortBy::Rank => {
+        match (&self.sort_by, &self.sort_order) {
+            (SortBy::Rank, SortOrder::Ascending) => {
                 coins.sort_by(|a, b| a.market_cap_rank.cmp(&b.market_cap_rank));
             }
 
-            SortBy::Price => {
+            (SortBy::Rank, SortOrder::Descending) => {
+                coins.sort_by(|a, b| b.market_cap_rank.cmp(&a.market_cap_rank));
+            }
+
+            (SortBy::Price, SortOrder::Ascending) => {
                 coins.sort_by(|a, b| b.current_price.partial_cmp(&a.current_price).unwrap());
             }
 
-            SortBy::MarketCap => {
+            (SortBy::Price, SortOrder::Descending) => {
+                coins.sort_by(|a, b| a.current_price.partial_cmp(&b.current_price).unwrap());
+            }
+
+            (SortBy::MarketCap, SortOrder::Ascending) => {
                 coins.sort_by(|a, b| b.market_cap.partial_cmp(&a.market_cap).unwrap());
             }
 
-            SortBy::Volume => {
+            (SortBy::MarketCap, SortOrder::Descending) => {
+                coins.sort_by(|a, b| a.market_cap.partial_cmp(&b.market_cap).unwrap());
+            }
+
+            (SortBy::Volume, SortOrder::Ascending) => {
                 coins.sort_by(|a, b| b.total_volume.partial_cmp(&a.total_volume).unwrap());
             }
 
-            SortBy::Change24h => {
+            (SortBy::Volume, SortOrder::Descending) => {
+                coins.sort_by(|a, b| a.total_volume.partial_cmp(&b.total_volume).unwrap());
+            }
+
+            (SortBy::Change24h, SortOrder::Ascending) => {
                 coins.sort_by(|a, b| {
                     b.price_change_percentage_24h
                         .partial_cmp(&a.price_change_percentage_24h)
+                        .unwrap()
+                });
+            }
+
+            (SortBy::Change24h, SortOrder::Descending) => {
+                coins.sort_by(|a, b| {
+                    a.price_change_percentage_24h
+                        .partial_cmp(&b.price_change_percentage_24h)
                         .unwrap()
                 });
             }
