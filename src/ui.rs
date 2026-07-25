@@ -3,6 +3,7 @@ use crate::models::Coin;
 use chrono::Local;
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
+use std::cmp::Ordering;
 use thousands::Separable;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -248,42 +249,68 @@ impl CryptoApp {
             }
 
             (SortBy::Price, SortOrder::Ascending) => {
-                coins.sort_by(|a, b| b.current_price.partial_cmp(&a.current_price).unwrap());
+                coins.sort_by(|a, b| {
+                    b.current_price
+                        .partial_cmp(&a.current_price)
+                        .unwrap_or(Ordering::Equal)
+                });
             }
 
             (SortBy::Price, SortOrder::Descending) => {
-                coins.sort_by(|a, b| a.current_price.partial_cmp(&b.current_price).unwrap());
+                coins.sort_by(|a, b| {
+                    a.current_price
+                        .partial_cmp(&b.current_price)
+                        .unwrap_or(Ordering::Equal)
+                });
             }
 
             (SortBy::MarketCap, SortOrder::Ascending) => {
-                coins.sort_by(|a, b| b.market_cap.partial_cmp(&a.market_cap).unwrap());
+                coins.sort_by(|a, b| {
+                    b.market_cap
+                        .partial_cmp(&a.market_cap)
+                        .unwrap_or(Ordering::Equal)
+                });
             }
 
             (SortBy::MarketCap, SortOrder::Descending) => {
-                coins.sort_by(|a, b| a.market_cap.partial_cmp(&b.market_cap).unwrap());
+                coins.sort_by(|a, b| {
+                    a.market_cap
+                        .partial_cmp(&b.market_cap)
+                        .unwrap_or(Ordering::Equal)
+                });
             }
 
             (SortBy::Volume, SortOrder::Ascending) => {
-                coins.sort_by(|a, b| b.total_volume.partial_cmp(&a.total_volume).unwrap());
+                coins.sort_by(|a, b| {
+                    b.total_volume
+                        .partial_cmp(&a.total_volume)
+                        .unwrap_or(Ordering::Equal)
+                });
             }
 
             (SortBy::Volume, SortOrder::Descending) => {
-                coins.sort_by(|a, b| a.total_volume.partial_cmp(&b.total_volume).unwrap());
+                coins.sort_by(|a, b| {
+                    a.total_volume
+                        .partial_cmp(&b.total_volume)
+                        .unwrap_or(Ordering::Equal)
+                });
             }
 
             (SortBy::Change24h, SortOrder::Ascending) => {
                 coins.sort_by(|a, b| {
                     b.price_change_percentage_24h
-                        .partial_cmp(&a.price_change_percentage_24h)
-                        .unwrap()
+                        .unwrap_or(0.0)
+                        .partial_cmp(&a.price_change_percentage_24h.unwrap_or(0.0))
+                        .unwrap_or(Ordering::Equal)
                 });
             }
 
             (SortBy::Change24h, SortOrder::Descending) => {
                 coins.sort_by(|a, b| {
                     a.price_change_percentage_24h
-                        .partial_cmp(&b.price_change_percentage_24h)
-                        .unwrap()
+                        .unwrap_or(0.0)
+                        .partial_cmp(&b.price_change_percentage_24h.unwrap_or(0.0))
+                        .unwrap_or(Ordering::Equal)
                 });
             }
         }
