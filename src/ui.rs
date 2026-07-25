@@ -124,9 +124,11 @@ impl CryptoApp {
                 });
             })
             .body(|body| {
+                let filtered_coins = self.search_coins();
+
                 // populate rows
-                body.rows(20.0, self.coins.len(), |mut row| {
-                    let coin = &self.coins[row.index()];
+                body.rows(20.0, filtered_coins.len(), |mut row| {
+                    let coin = filtered_coins[row.index()];
 
                     row.col(|ui| {
                         ui.label(coin.market_cap_rank.to_string());
@@ -168,6 +170,19 @@ impl CryptoApp {
                     });
                 });
             });
+    }
+
+    fn search_coins(&self) -> Vec<&Coin> {
+        let query = self.search_query.trim().to_lowercase();
+
+        self.coins
+            .iter()
+            .filter(|coin| {
+                query.is_empty()
+                    || coin.name.to_lowercase().contains(&query)
+                    || coin.symbol.to_lowercase().contains(&query)
+            })
+            .collect()
     }
 }
 
