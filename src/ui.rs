@@ -4,6 +4,7 @@ use chrono::Local;
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use thousands::Separable;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -17,6 +18,8 @@ pub struct CryptoApp {
 
     selected_coin_id: Option<String>,
     current_screen: AppScreen,
+
+    favorite_coins: HashSet<String>,
 
     tx: Sender<anyhow::Result<Vec<Coin>>>,
     rx: Receiver<anyhow::Result<Vec<Coin>>>,
@@ -63,6 +66,7 @@ impl CryptoApp {
             sort_order: SortOrder::default(),
             selected_coin_id: None,
             current_screen: AppScreen::default(),
+            favorite_coins: HashSet::new(),
             rx,
             tx,
             error_message: None,
@@ -156,6 +160,7 @@ impl CryptoApp {
         ui.add_space(10.0);
 
         let mut clicked_coin_id: Option<String> = None;
+        let mut favorite_clicked: Option<String> = None;
 
         // build professional table
         TableBuilder::new(ui)
@@ -163,6 +168,7 @@ impl CryptoApp {
             .resizable(true) // user can drag column borders
             .vscroll(true) // scroll when needed
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Column::auto()) // Favorite
             .column(Column::auto()) // Rank
             .column(Column::auto()) // Symbol
             .column(Column::remainder()) // Name
@@ -171,6 +177,9 @@ impl CryptoApp {
             .column(Column::auto()) // Market Cap
             .column(Column::auto()) // Volume
             .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.strong("");
+                });
                 header.col(|ui| {
                     ui.strong("Rank");
                 });
@@ -201,18 +210,40 @@ impl CryptoApp {
                     let coin = filtered_coins[row.index()];
 
                     row.col(|ui| {
+                        let is_favorite = self.favorite_coins.contains(&coin.id);
+
+                        let icon = if is_favorite { "★" } else { "☆" };
+
+                        let color = if is_favorite {
+                            Color32::YELLOW
+                        } else {
+                            Color32::GRAY
+                        };
+
+                        if ui
+                            .add(egui::Button::new(egui::RichText::new(icon).color(color)))
+                            .clicked()
+                        {
+                            favorite_clicked = Some(coin.id.clone());
+                        }
+                    });
+
+                    row.col(|ui| {
                         ui.label(coin.market_cap_rank.to_string());
                     });
+
                     row.col(|ui| {
                         if ui.selectable_label(false, &coin.symbol).clicked() {
                             clicked_coin_id = Some(coin.id.clone());
                         }
                     });
+
                     row.col(|ui| {
                         if ui.selectable_label(false, &coin.name).clicked() {
                             clicked_coin_id = Some(coin.id.clone());
                         }
                     });
+
                     row.col(|ui| {
                         ui.label(format_price(coin.current_price));
                     });
@@ -239,6 +270,7 @@ impl CryptoApp {
                     row.col(|ui| {
                         ui.label(format_large_number(coin.market_cap));
                     });
+
                     row.col(|ui| {
                         ui.label(format_large_number(coin.total_volume));
                     });
@@ -248,6 +280,14 @@ impl CryptoApp {
         if let Some(id) = clicked_coin_id {
             self.selected_coin_id = Some(id);
             self.current_screen = AppScreen::CoinDetails;
+        }
+
+        if let Some(id) = favorite_clicked {
+            if self.favorite_coins.contains(&id) {
+                self.favorite_coins.remove(&id);
+            } else {
+                self.favorite_coins.insert(id);
+            }
         }
     }
 
