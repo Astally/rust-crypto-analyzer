@@ -344,10 +344,6 @@ impl CryptoApp {
     }
 
     fn show_coin_details(&mut self, ui: &mut egui::Ui) {
-        ui.vertical_centered(|ui| {
-            ui.heading("Coin Details");
-        });
-
         if ui.button("Back").clicked() {
             self.current_screen = AppScreen::Dashboard;
         }
@@ -362,37 +358,86 @@ impl CryptoApp {
             return;
         };
 
-        ui.heading(&coin.name);
+        ui.add_space(15.0);
 
-        ui.label(format!("Symbol: {}", coin.symbol));
+        ui.vertical(|ui| {
+            ui.heading(&coin.name);
+            ui.label(coin.symbol.to_uppercase());
+        });
 
-        ui.label(format!("Rank: {}", coin.market_cap_rank));
+        ui.add_space(20.0);
 
-        ui.label(format!("Price: {}", format_price(coin.current_price)));
+        ui.columns(2, |columns| {
+            columns[0].group(|ui| {
+                egui::Grid::new("market_data").show(ui, |ui| {
+                    ui.heading("Market Information");
+                    ui.end_row();
 
-        ui.label(format!(
-            "Market Cap: {}",
-            format_large_number(coin.market_cap)
-        ));
+                    ui.label("Rank");
+                    ui.strong(format!("#{}", coin.market_cap_rank));
+                    ui.end_row();
 
-        ui.label(format!(
-            "Volume: {}",
-            format_large_number(coin.total_volume)
-        ));
+                    ui.label("Price");
+                    ui.strong(format_price(coin.current_price));
+                    ui.end_row();
 
-        ui.label(format!("ATH: {}", format_price(coin.ath)));
+                    ui.label("Market Cap");
+                    ui.strong(format_large_number(coin.market_cap));
+                    ui.end_row();
 
-        ui.label(format!("ATL: {}", format_price(coin.atl)));
+                    ui.label("Volume");
+                    ui.strong(format_large_number(coin.total_volume));
+                    ui.end_row();
 
-        ui.label(format!(
-            "24h High: {}",
-            format_price(coin.high_24h.unwrap_or(0.0))
-        ));
+                    ui.label("Last Update");
+                    ui.strong(coin.last_updated.split('T').next().unwrap_or("-"));
+                    ui.end_row();
+                });
+            });
 
-        ui.label(format!(
-            "24h Low: {}",
-            format_price(coin.low_24h.unwrap_or(0.0))
-        ));
+            columns[1].group(|ui| {
+                egui::Grid::new("price_data").show(ui, |ui| {
+                    ui.heading("Price Information");
+                    ui.end_row();
+
+                    ui.label("24h Change");
+                    match coin.price_change_percentage_24h {
+                        Some(change) => {
+                            let color = if change > 0.0 {
+                                Color32::LIGHT_GREEN
+                            } else if change < 0.0 {
+                                Color32::LIGHT_RED
+                            } else {
+                                Color32::WHITE
+                            };
+
+                            ui.strong(egui::RichText::new(format_percentage(change)).color(color));
+                        }
+
+                        None => {
+                            ui.strong("-");
+                        }
+                    }
+                    ui.end_row();
+
+                    ui.label("High 24h");
+                    ui.strong(format_price(coin.high_24h.unwrap_or(0.0)));
+                    ui.end_row();
+
+                    ui.label("Low 24h");
+                    ui.strong(format_price(coin.low_24h.unwrap_or(0.0)));
+                    ui.end_row();
+
+                    ui.label("ATH");
+                    ui.strong(format_price(coin.ath));
+                    ui.end_row();
+
+                    ui.label("ATL");
+                    ui.strong(format_price(coin.atl));
+                    ui.end_row();
+                });
+            });
+        });
     }
 }
 
@@ -412,11 +457,9 @@ impl eframe::App for CryptoApp {
             }
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::CentralPanel::default().show(ctx, |ui| match self.current_screen {
-                AppScreen::Dashboard => self.show_dashboard(ui),
-                AppScreen::CoinDetails => self.show_coin_details(ui),
-            });
+        egui::CentralPanel::default().show(ctx, |ui| match self.current_screen {
+            AppScreen::Dashboard => self.show_dashboard(ui),
+            AppScreen::CoinDetails => self.show_coin_details(ui),
         });
     }
 }
