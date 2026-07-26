@@ -14,6 +14,7 @@ pub struct CryptoApp {
     search_query: String,
     sort_by: SortBy,
     sort_order: SortOrder,
+    selected_coin_id: Option<String>,
 
     tx: Sender<anyhow::Result<Vec<Coin>>>,
     rx: Receiver<anyhow::Result<Vec<Coin>>>,
@@ -51,6 +52,7 @@ impl CryptoApp {
             search_query: String::new(),
             sort_by: SortBy::default(),
             sort_order: SortOrder::default(),
+            selected_coin_id: None,
             rx,
             tx,
             error_message: None,
@@ -143,6 +145,8 @@ impl CryptoApp {
 
         ui.add_space(10.0);
 
+        let mut clicked_coin_id: Option<String> = None;
+
         // build professional table
         TableBuilder::new(ui)
             .striped(true) // alternate row colors
@@ -190,10 +194,14 @@ impl CryptoApp {
                         ui.label(coin.market_cap_rank.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(coin.symbol.to_uppercase());
+                        if ui.selectable_label(false, &coin.symbol).clicked() {
+                            clicked_coin_id = Some(coin.id.clone());
+                        }
                     });
                     row.col(|ui| {
-                        ui.label(&coin.name);
+                        if ui.selectable_label(false, &coin.name).clicked() {
+                            clicked_coin_id = Some(coin.id.clone());
+                        }
                     });
                     row.col(|ui| {
                         ui.label(format_price(coin.current_price));
@@ -226,6 +234,10 @@ impl CryptoApp {
                     });
                 });
             });
+
+        if let Some(id) = clicked_coin_id {
+            self.selected_coin_id = Some(id);
+        }
     }
 
     fn get_filtered_coins(&self) -> Vec<&Coin> {
