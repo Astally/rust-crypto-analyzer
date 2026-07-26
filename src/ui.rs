@@ -20,6 +20,7 @@ pub struct CryptoApp {
     current_screen: AppScreen,
 
     favorite_coins: HashSet<String>,
+    show_filter: CoinFilter,
 
     tx: Sender<anyhow::Result<Vec<Coin>>>,
     rx: Receiver<anyhow::Result<Vec<Coin>>>,
@@ -32,6 +33,13 @@ enum AppScreen {
     #[default]
     Dashboard,
     CoinDetails,
+}
+
+#[derive(Default, PartialEq)]
+enum CoinFilter {
+    #[default]
+    All,
+    Favorites,
 }
 
 #[derive(Default, PartialEq)]
@@ -67,6 +75,7 @@ impl CryptoApp {
             selected_coin_id: None,
             current_screen: AppScreen::default(),
             favorite_coins: HashSet::new(),
+            show_filter: CoinFilter::default(),
             rx,
             tx,
             error_message: None,
@@ -147,6 +156,18 @@ impl CryptoApp {
                     ui.selectable_value(&mut self.sort_order, SortOrder::Ascending, "Ascending");
 
                     ui.selectable_value(&mut self.sort_order, SortOrder::Descending, "Descending");
+                });
+
+            // show all and favorite
+            egui::ComboBox::from_id_salt("Show")
+                .selected_text(match self.show_filter {
+                    CoinFilter::All => "All Coins",
+                    CoinFilter::Favorites => "Favorites",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.show_filter, CoinFilter::All, "All Coins");
+
+                    ui.selectable_value(&mut self.show_filter, CoinFilter::Favorites, "Favorites");
                 });
 
             // search box
