@@ -319,9 +319,16 @@ impl CryptoApp {
             .coins
             .iter()
             .filter(|coin| {
-                query.is_empty()
+                let matches_search = query.is_empty()
                     || coin.name.to_lowercase().contains(&query)
-                    || coin.symbol.to_lowercase().contains(&query)
+                    || coin.symbol.to_lowercase().contains(&query);
+
+                let matches_filter = match self.show_filter {
+                    CoinFilter::All => true,
+                    CoinFilter::Favorites => self.favorite_coins.contains(&coin.id),
+                };
+
+                matches_search && matches_filter
             })
             .collect();
 
