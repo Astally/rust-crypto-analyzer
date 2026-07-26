@@ -14,12 +14,21 @@ pub struct CryptoApp {
     search_query: String,
     sort_by: SortBy,
     sort_order: SortOrder,
+
     selected_coin_id: Option<String>,
+    current_screen: AppScreen,
 
     tx: Sender<anyhow::Result<Vec<Coin>>>,
     rx: Receiver<anyhow::Result<Vec<Coin>>>,
 
     error_message: Option<String>,
+}
+
+#[derive(Default)]
+enum AppScreen {
+    #[default]
+    Dashboard,
+    CoinDetails,
 }
 
 #[derive(Default, PartialEq)]
@@ -53,6 +62,7 @@ impl CryptoApp {
             sort_by: SortBy::default(),
             sort_order: SortOrder::default(),
             selected_coin_id: None,
+            current_screen: AppScreen::default(),
             rx,
             tx,
             error_message: None,
@@ -237,6 +247,7 @@ impl CryptoApp {
 
         if let Some(id) = clicked_coin_id {
             self.selected_coin_id = Some(id);
+            self.current_screen = AppScreen::CoinDetails;
         }
     }
 
@@ -331,6 +342,58 @@ impl CryptoApp {
 
         coins
     }
+
+    fn show_coin_details(&mut self, ui: &mut egui::Ui) {
+        ui.vertical_centered(|ui| {
+            ui.heading("Coin Details");
+        });
+
+        if ui.button("Back").clicked() {
+            self.current_screen = AppScreen::Dashboard;
+        }
+
+        let Some(id) = &self.selected_coin_id else {
+            ui.label("No coin selected.");
+            return;
+        };
+
+        let Some(coin) = self.coins.iter().find(|coin| &coin.id == id) else {
+            ui.label("Coin not found.");
+            return;
+        };
+
+        ui.heading(&coin.name);
+
+        ui.label(format!("Symbol: {}", coin.symbol));
+
+        ui.label(format!("Rank: {}", coin.market_cap_rank));
+
+        ui.label(format!("Price: {}", format_price(coin.current_price)));
+
+        ui.label(format!(
+            "Market Cap: {}",
+            format_large_number(coin.market_cap)
+        ));
+
+        ui.label(format!(
+            "Volume: {}",
+            format_large_number(coin.total_volume)
+        ));
+
+        ui.label(format!("ATH: {}", format_price(coin.ath)));
+
+        ui.label(format!("ATL: {}", format_price(coin.atl)));
+
+        ui.label(format!(
+            "24h High: {}",
+            format_price(coin.high_24h.unwrap_or(0.0))
+        ));
+
+        ui.label(format!(
+            "24h Low: {}",
+            format_price(coin.low_24h.unwrap_or(0.0))
+        ));
+    }
 }
 
 impl eframe::App for CryptoApp {
@@ -350,7 +413,10 @@ impl eframe::App for CryptoApp {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.show_dashboard(ui);
+            egui::CentralPanel::default().show(ctx, |ui| match self.current_screen {
+                AppScreen::Dashboard => self.show_dashboard(ui),
+                AppScreen::CoinDetails => self.show_coin_details(ui),
+            });
         });
     }
 }
