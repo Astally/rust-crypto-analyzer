@@ -183,6 +183,33 @@ impl CryptoApp {
         let mut clicked_coin_id: Option<String> = None;
         let mut favorite_clicked: Option<String> = None;
 
+        let filtered_coins = self.get_filtered_coins();
+
+        let favorite_count = self.favorite_coins.len();
+
+        if filtered_coins.is_empty() {
+            ui.vertical_centered(|ui| {
+                ui.heading("No coins found");
+                ui.add_space(10.0);
+
+                match self.show_filter {
+                    CoinFilter::Favorites => {
+                        if favorite_count == 0 {
+                            ui.label("You haven't added any favorite coins yet.");
+                        } else {
+                            ui.label("No favorite coins match your search.");
+                        }
+                    }
+
+                    CoinFilter::All => {
+                        ui.label("No coins match your search.");
+                    }
+                }
+            });
+
+            return;
+        }
+
         // build professional table
         TableBuilder::new(ui)
             .striped(true) // alternate row colors
@@ -224,8 +251,6 @@ impl CryptoApp {
                 });
             })
             .body(|body| {
-                let filtered_coins = self.get_filtered_coins();
-
                 // populate rows
                 body.rows(20.0, filtered_coins.len(), |mut row| {
                     let coin = filtered_coins[row.index()];
