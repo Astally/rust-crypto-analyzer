@@ -1,4 +1,5 @@
 mod client;
+mod dashboard;
 mod filter;
 mod format;
 mod models;
