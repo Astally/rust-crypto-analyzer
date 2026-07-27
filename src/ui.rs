@@ -27,6 +27,7 @@ pub struct CryptoApp {
     rx: Receiver<anyhow::Result<Vec<Coin>>>,
 
     error_message: Option<String>,
+    error_time: Option<chrono::DateTime<Local>>,
 }
 
 #[derive(Default)]
@@ -65,8 +66,24 @@ impl CryptoApp {
         coins: Vec<Coin>,
         tx: Sender<anyhow::Result<Vec<Coin>>>,
         rx: Receiver<anyhow::Result<Vec<Coin>>>,
-    ) -> anyhow::Result<Self> {
-        Ok(CryptoApp {
+    ) -> Self {
+        let mut error_message = None;
+        let mut error_time = None;
+
+        let favorite_coins = match load_favorites() {
+            Ok(favorites) => favorites,
+
+            Err(error) => {
+                eprintln!("Failed to load favorites: {error}");
+
+                error_message = Some(error.to_string());
+                error_time = Some(Local::now());
+
+                HashSet::new()
+            }
+        };
+
+        CryptoApp {
             coins,
             per_page: 10,
             last_updated: Local::now(),
@@ -75,12 +92,13 @@ impl CryptoApp {
             sort_order: SortOrder::default(),
             selected_coin_id: None,
             current_screen: AppScreen::default(),
-            favorite_coins: load_favorites()?,
+            favorite_coins: favorite_coins,
             show_filter: CoinFilter::default(),
+            error_time,
             rx,
             tx,
-            error_message: None,
-        })
+            error_message,
+        }
     }
 
     fn show_dashboard(&mut self, ui: &mut egui::Ui) {
@@ -340,6 +358,7 @@ impl CryptoApp {
             // save favorite JSON
             if let Err(error) = save_favorites(&self.favorite_coins) {
                 self.error_message = Some(error.to_string());
+                self.error_time = Some(Local::now());
             }
         }
     }
@@ -548,12 +567,22 @@ impl eframe::App for CryptoApp {
                 Ok(coins) => {
                     self.coins = coins;
                     self.last_updated = Local::now();
+
                     self.error_message = None;
+                    self.error_time = None;
                 }
 
                 Err(error) => {
                     self.error_message = Some(error.to_string());
+                    self.error_time = None;
                 }
+            }
+        }
+
+        if let Some(time) = self.error_time {
+            if (Local::now() - time).num_seconds() >= 3 {
+                self.error_message = None;
+                self.error_time = None;
             }
         }
 
