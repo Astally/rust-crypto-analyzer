@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 
 #[derive(Serialize, Deserialize)]
 pub struct FavoritesData {
@@ -25,4 +26,14 @@ pub fn save_favorites(favorites: &HashSet<String>) -> Result<()> {
     Ok(())
 }
 
-pub fn load_favorites() {}
+pub fn load_favorites() -> Result<HashSet<String>> {
+    if !Path::new(FAVORITES_FILE).exists() {
+        return Ok(HashSet::new());
+    }
+
+    let json = std::fs::read_to_string(FAVORITES_FILE)?;
+
+    let data: FavoritesData = serde_json::from_str(&json)?;
+
+    Ok(data.favorites.into_iter().collect())
+}
