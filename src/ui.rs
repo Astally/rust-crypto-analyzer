@@ -1,5 +1,6 @@
 use crate::client::get_market_data;
 use crate::models::Coin;
+use crate::storage::{load_favorites, save_favorites};
 use chrono::Local;
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
@@ -64,8 +65,8 @@ impl CryptoApp {
         coins: Vec<Coin>,
         tx: Sender<anyhow::Result<Vec<Coin>>>,
         rx: Receiver<anyhow::Result<Vec<Coin>>>,
-    ) -> Self {
-        CryptoApp {
+    ) -> anyhow::Result<Self> {
+        Ok(CryptoApp {
             coins,
             per_page: 10,
             last_updated: Local::now(),
@@ -74,12 +75,12 @@ impl CryptoApp {
             sort_order: SortOrder::default(),
             selected_coin_id: None,
             current_screen: AppScreen::default(),
-            favorite_coins: HashSet::new(),
+            favorite_coins: load_favorites()?,
             show_filter: CoinFilter::default(),
             rx,
             tx,
             error_message: None,
-        }
+        })
     }
 
     fn show_dashboard(&mut self, ui: &mut egui::Ui) {
@@ -328,11 +329,17 @@ impl CryptoApp {
             self.current_screen = AppScreen::CoinDetails;
         }
 
+        // favorite button
         if let Some(id) = favorite_clicked {
             if self.favorite_coins.contains(&id) {
                 self.favorite_coins.remove(&id);
             } else {
                 self.favorite_coins.insert(id);
+            }
+
+            // save favorite JSON
+            if let Err(error) = save_favorites(&self.favorite_coins) {
+                self.error_message = Some(error.to_string());
             }
         }
     }

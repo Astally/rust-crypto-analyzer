@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
     if let Err(error) = eframe::run_native(
         "Crypto Analyzer",
         options,
-        Box::new(move |_cc| Ok(Box::new(CryptoApp::new(coins, tx, rx)))),
+        Box::new(move |_cc| Ok(Box::new(CryptoApp::new(coins, tx, rx)?))),
     ) {
         eprintln!("Failed to start GUI: {error}");
     }
