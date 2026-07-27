@@ -1,4 +1,5 @@
 use crate::client::get_market_data;
+use crate::format::{format_large_number, format_percentage, format_price};
 use crate::models::Coin;
 use crate::storage::{load_favorites, save_favorites};
 use chrono::Local;
@@ -6,7 +7,6 @@ use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use thousands::Separable;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct CryptoApp {
@@ -591,35 +591,4 @@ impl eframe::App for CryptoApp {
             AppScreen::CoinDetails => self.show_coin_details(ui),
         });
     }
-}
-
-fn format_large_number(large_number: f64) -> String {
-    let number: String;
-
-    if large_number >= 1_000_000_000_000.0 {
-        number = format!("{:.2} T", large_number / 1_000_000_000_000.0);
-    } else if large_number >= 1_000_000_000.0 {
-        number = format!("{:.2} B", large_number / 1_000_000_000.0);
-    } else if large_number >= 1_000_000.0 {
-        number = format!("{:.2} M", large_number / 1_000_000.0);
-    } else {
-        number = large_number.separate_with_commas();
-    }
-
-    number
-}
-
-fn format_percentage(percent_number: f64) -> String {
-    let number: String;
-    if percent_number > 0.0 {
-        number = format!("+{:.2}%", percent_number);
-    } else {
-        number = format!("{:.2}%", percent_number);
-    }
-
-    number
-}
-
-fn format_price(price: f64) -> String {
-    return format!("${}", format!("{:.2}", price).separate_with_commas());
 }

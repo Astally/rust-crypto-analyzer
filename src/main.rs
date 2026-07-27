@@ -1,4 +1,5 @@
 mod client;
+mod format;
 mod models;
 mod storage;
 mod ui;
