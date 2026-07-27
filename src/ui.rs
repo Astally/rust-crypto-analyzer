@@ -1,11 +1,11 @@
 use crate::client::get_market_data;
+use crate::filter;
 use crate::format::{format_large_number, format_percentage, format_price};
 use crate::models::Coin;
 use crate::storage::{load_favorites, save_favorites};
 use chrono::Local;
 use eframe::egui::{self, Color32};
 use egui_extras::{Column, TableBuilder};
-use std::cmp::Ordering;
 use std::collections::HashSet;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -38,14 +38,14 @@ enum AppScreen {
 }
 
 #[derive(Default, PartialEq)]
-enum CoinFilter {
+pub enum CoinFilter {
     #[default]
     All,
     Favorites,
 }
 
 #[derive(Default, PartialEq)]
-enum SortBy {
+pub enum SortBy {
     #[default]
     Rank,
     Price,
@@ -55,7 +55,7 @@ enum SortBy {
 }
 
 #[derive(Default, PartialEq)]
-enum SortOrder {
+pub enum SortOrder {
     #[default]
     Ascending,
     Descending,
@@ -362,104 +362,15 @@ impl CryptoApp {
             }
         }
     }
-
     fn get_filtered_coins(&self) -> Vec<&Coin> {
-        let query = self.search_query.trim().to_lowercase();
-
-        let mut coins: Vec<&Coin> = self
-            .coins
-            .iter()
-            .filter(|coin| {
-                let matches_search = query.is_empty()
-                    || coin.name.to_lowercase().contains(&query)
-                    || coin.symbol.to_lowercase().contains(&query);
-
-                let matches_filter = match self.show_filter {
-                    CoinFilter::All => true,
-                    CoinFilter::Favorites => self.favorite_coins.contains(&coin.id),
-                };
-
-                matches_search && matches_filter
-            })
-            .collect();
-
-        match (&self.sort_by, &self.sort_order) {
-            (SortBy::Rank, SortOrder::Ascending) => {
-                coins.sort_by(|a, b| a.market_cap_rank.cmp(&b.market_cap_rank));
-            }
-
-            (SortBy::Rank, SortOrder::Descending) => {
-                coins.sort_by(|a, b| b.market_cap_rank.cmp(&a.market_cap_rank));
-            }
-
-            (SortBy::Price, SortOrder::Ascending) => {
-                coins.sort_by(|a, b| {
-                    b.current_price
-                        .partial_cmp(&a.current_price)
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-
-            (SortBy::Price, SortOrder::Descending) => {
-                coins.sort_by(|a, b| {
-                    a.current_price
-                        .partial_cmp(&b.current_price)
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-
-            (SortBy::MarketCap, SortOrder::Ascending) => {
-                coins.sort_by(|a, b| {
-                    b.market_cap
-                        .partial_cmp(&a.market_cap)
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-
-            (SortBy::MarketCap, SortOrder::Descending) => {
-                coins.sort_by(|a, b| {
-                    a.market_cap
-                        .partial_cmp(&b.market_cap)
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-
-            (SortBy::Volume, SortOrder::Ascending) => {
-                coins.sort_by(|a, b| {
-                    b.total_volume
-                        .partial_cmp(&a.total_volume)
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-
-            (SortBy::Volume, SortOrder::Descending) => {
-                coins.sort_by(|a, b| {
-                    a.total_volume
-                        .partial_cmp(&b.total_volume)
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-
-            (SortBy::Change24h, SortOrder::Ascending) => {
-                coins.sort_by(|a, b| {
-                    b.price_change_percentage_24h
-                        .unwrap_or(0.0)
-                        .partial_cmp(&a.price_change_percentage_24h.unwrap_or(0.0))
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-
-            (SortBy::Change24h, SortOrder::Descending) => {
-                coins.sort_by(|a, b| {
-                    a.price_change_percentage_24h
-                        .unwrap_or(0.0)
-                        .partial_cmp(&b.price_change_percentage_24h.unwrap_or(0.0))
-                        .unwrap_or(Ordering::Equal)
-                });
-            }
-        }
-
-        coins
+        filter::get_filtered_coins(
+            &self.coins,
+            &self.search_query,
+            &self.show_filter,
+            &self.favorite_coins,
+            &self.sort_by,
+            &self.sort_order,
+        )
     }
 
     fn show_coin_details(&mut self, ui: &mut egui::Ui) {
