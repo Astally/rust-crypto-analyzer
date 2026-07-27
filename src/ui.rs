@@ -28,6 +28,9 @@ pub struct CryptoApp {
 
     error_message: Option<String>,
     error_time: Option<chrono::DateTime<Local>>,
+
+    settings: Settings,
+    show_settings: bool,
 }
 
 #[derive(Default)]
@@ -59,6 +62,11 @@ pub enum SortOrder {
     #[default]
     Ascending,
     Descending,
+}
+
+pub struct Settings {
+    pub auto_refresh: bool,
+    pub refresh_interval: u64,
 }
 
 impl CryptoApp {
@@ -98,6 +106,11 @@ impl CryptoApp {
             rx,
             tx,
             error_message,
+            settings: Settings {
+                auto_refresh: false,
+                refresh_interval: 10,
+            },
+            show_settings: false,
         }
     }
 
@@ -193,8 +206,15 @@ impl CryptoApp {
             ui.add(
                 egui::TextEdit::singleline(&mut self.search_query)
                     .hint_text("Search by name or symbol...")
-                    .desired_width(200.0),
+                    .desired_width(180.0),
             );
+
+            // setting
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("⚙").on_hover_text("Settings").clicked() {
+                    self.show_settings = true;
+                }
+            });
         });
 
         ui.add_space(10.0);
@@ -313,6 +333,23 @@ impl eframe::App for CryptoApp {
                 self.error_message = None;
                 self.error_time = None;
             }
+        }
+
+        if self.show_settings {
+            egui::Window::new("Settings").show(ctx, |ui| {
+                ui.checkbox(&mut self.settings.auto_refresh, "Auto Refresh");
+
+                ui.add_enabled_ui(self.settings.auto_refresh, |ui| {
+                    egui::ComboBox::from_label("Interval")
+                        .selected_text(format!("{} sec", self.settings.refresh_interval))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.settings.refresh_interval, 5, "5 sec");
+                            ui.selectable_value(&mut self.settings.refresh_interval, 10, "10 sec");
+                            ui.selectable_value(&mut self.settings.refresh_interval, 30, "30 sec");
+                            ui.selectable_value(&mut self.settings.refresh_interval, 60, "1 min");
+                        });
+                });
+            });
         }
 
         egui::CentralPanel::default().show(ctx, |ui| match self.current_screen {
