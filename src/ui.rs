@@ -7,6 +7,7 @@ use crate::storage::{load_favorites, save_favorites};
 use chrono::Local;
 use eframe::egui::{self, Color32};
 use std::collections::HashSet;
+use std::time::Instant;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct CryptoApp {
@@ -31,6 +32,8 @@ pub struct CryptoApp {
 
     settings: Settings,
     show_settings: bool,
+    is_refreshing: bool,
+    last_refresh: Instant,
 }
 
 #[derive(Default)]
@@ -111,6 +114,8 @@ impl CryptoApp {
                 refresh_interval: 10,
             },
             show_settings: false,
+            is_refreshing: false,
+            last_refresh: Instant::now(),
         }
     }
 
@@ -137,7 +142,9 @@ impl CryptoApp {
         ui.add_space(10.0);
 
         ui.horizontal(|ui| {
-            if ui.button("Refresh").clicked() {
+            if ui.button("Refresh").clicked() && !self.is_refreshing {
+                self.is_refreshing = true;
+
                 let tx = self.tx.clone();
 
                 let per_page = self.per_page;
@@ -149,6 +156,8 @@ impl CryptoApp {
                         eprintln!("Failed to send result: {error}");
                     }
                 });
+
+                self.last_refresh = Instant::now();
             };
 
             // number of coins box
@@ -312,6 +321,8 @@ impl CryptoApp {
 impl eframe::App for CryptoApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if let Ok(result) = self.rx.try_recv() {
+            self.is_refreshing = false;
+
             match result {
                 Ok(coins) => {
                     self.coins = coins;
@@ -335,21 +346,60 @@ impl eframe::App for CryptoApp {
             }
         }
 
+        // settings layout
         if self.show_settings {
-            egui::Window::new("Settings").show(ctx, |ui| {
-                ui.checkbox(&mut self.settings.auto_refresh, "Auto Refresh");
+            egui::Window::new("Settings")
+                .open(&mut self.show_settings)
+                .show(ctx, |ui| {
+                    ui.checkbox(&mut self.settings.auto_refresh, "Auto Refresh");
 
-                ui.add_enabled_ui(self.settings.auto_refresh, |ui| {
-                    egui::ComboBox::from_label("Interval")
-                        .selected_text(format!("{} sec", self.settings.refresh_interval))
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.settings.refresh_interval, 5, "5 sec");
-                            ui.selectable_value(&mut self.settings.refresh_interval, 10, "10 sec");
-                            ui.selectable_value(&mut self.settings.refresh_interval, 30, "30 sec");
-                            ui.selectable_value(&mut self.settings.refresh_interval, 60, "1 min");
-                        });
+                    ui.add_enabled_ui(self.settings.auto_refresh, |ui| {
+                        egui::ComboBox::from_label("Interval")
+                            .selected_text(format!("{} sec", self.settings.refresh_interval))
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.settings.refresh_interval,
+                                    5,
+                                    "5 sec",
+                                );
+                                ui.selectable_value(
+                                    &mut self.settings.refresh_interval,
+                                    10,
+                                    "10 sec",
+                                );
+                                ui.selectable_value(
+                                    &mut self.settings.refresh_interval,
+                                    30,
+                                    "30 sec",
+                                );
+                                ui.selectable_value(
+                                    &mut self.settings.refresh_interval,
+                                    60,
+                                    "1 min",
+                                );
+                            });
+                    });
                 });
+        }
+
+        if self.settings.auto_refresh
+            && !self.is_refreshing
+            && self.last_refresh.elapsed().as_secs() >= self.settings.refresh_interval
+        {
+            self.is_refreshing = true;
+
+            let tx = self.tx.clone();
+            let per_page = self.per_page;
+
+            tokio::spawn(async move {
+                let result = get_market_data(per_page).await;
+
+                if let Err(error) = tx.send(result).await {
+                    eprintln!("Failed to send result: {error}");
+                }
             });
+
+            self.last_refresh = Instant::now();
         }
 
         egui::CentralPanel::default().show(ctx, |ui| match self.current_screen {
