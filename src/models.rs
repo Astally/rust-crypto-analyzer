@@ -17,3 +17,13 @@ pub struct Coin {
     pub ath: f64,
     pub atl: f64,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct Links {
+    pub homepage: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CoinDetails {
+    pub links: Links,
+}

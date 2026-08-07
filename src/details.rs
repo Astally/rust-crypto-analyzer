@@ -1,8 +1,8 @@
 use crate::format::{format_large_number, format_percentage, format_price};
-use crate::models::Coin;
+use crate::models::{Coin, CoinDetails};
 use eframe::egui::{self, Color32};
 
-pub fn show_coin_details(ui: &mut egui::Ui, coin: &Coin) {
+pub fn show_coin_details(ui: &mut egui::Ui, coin: &Coin, details: &Option<CoinDetails>) {
     ui.add_space(15.0);
 
     ui.vertical(|ui| {
@@ -11,6 +11,26 @@ pub fn show_coin_details(ui: &mut egui::Ui, coin: &Coin) {
     });
 
     ui.add_space(20.0);
+
+    ui.vertical(|ui| {
+        ui.label("Homepage:");
+
+        if let Some(details) = details {
+            if let Some(homepage) = details.links.homepage.first() {
+                if !homepage.is_empty() {
+                    ui.hyperlink(homepage);
+                } else {
+                    ui.label("No homepage available.");
+                }
+            } else {
+                ui.label("No homepage available.");
+            }
+        } else {
+            ui.label("Loading homepage...");
+        }
+    });
+
+    ui.add_space(15.0);
 
     ui.columns(2, |columns| {
         columns[0].group(|ui| {

@@ -1,8 +1,9 @@
+use crate::client::get_link_data;
 use crate::client::get_market_data;
 use crate::dashboard::show_coins_table;
 use crate::details::show_coin_details;
 use crate::filter;
-use crate::models::Coin;
+use crate::models::{Coin, CoinDetails};
 use crate::storage::{load_favorites, save_favorites};
 use chrono::Local;
 use eframe::egui::{self, Color32};
@@ -19,6 +20,7 @@ pub struct CryptoApp {
     sort_order: SortOrder,
 
     selected_coin_id: Option<String>,
+    coin_details: Option<CoinDetails>,
     current_screen: AppScreen,
 
     favorite_coins: HashSet<String>,
@@ -26,6 +28,9 @@ pub struct CryptoApp {
 
     tx: Sender<anyhow::Result<Vec<Coin>>>,
     rx: Receiver<anyhow::Result<Vec<Coin>>>,
+
+    details_tx: Sender<anyhow::Result<CoinDetails>>,
+    details_rx: Receiver<anyhow::Result<CoinDetails>>,
 
     error_message: Option<String>,
     error_time: Option<chrono::DateTime<Local>>,
@@ -77,6 +82,8 @@ impl CryptoApp {
         coins: Vec<Coin>,
         tx: Sender<anyhow::Result<Vec<Coin>>>,
         rx: Receiver<anyhow::Result<Vec<Coin>>>,
+        details_tx: Sender<anyhow::Result<CoinDetails>>,
+        details_rx: Receiver<anyhow::Result<CoinDetails>>,
     ) -> Self {
         let mut error_message = None;
         let mut error_time = None;
@@ -102,12 +109,15 @@ impl CryptoApp {
             sort_by: SortBy::default(),
             sort_order: SortOrder::default(),
             selected_coin_id: None,
+            coin_details: None,
             current_screen: AppScreen::default(),
             favorite_coins: favorite_coins,
             show_filter: CoinFilter::default(),
             error_time,
             rx,
             tx,
+            details_rx,
+            details_tx,
             error_message,
             settings: Settings {
                 auto_refresh: false,
@@ -268,6 +278,19 @@ impl CryptoApp {
         );
 
         if let Some(id) = clicked_coin_id {
+            self.coin_details = None;
+
+            let tx = self.details_tx.clone();
+            let coin_id = id.clone();
+
+            tokio::spawn(async move {
+                let result = get_link_data(&coin_id).await;
+
+                if let Err(error) = tx.send(result).await {
+                    eprintln!("Failed to send result: {error}");
+                }
+            });
+
             self.selected_coin_id = Some(id);
             self.current_screen = AppScreen::CoinDetails;
         }
@@ -314,7 +337,7 @@ impl CryptoApp {
             return;
         };
 
-        show_coin_details(ui, coin);
+        show_coin_details(ui, coin, &self.coin_details);
     }
 }
 
@@ -335,6 +358,18 @@ impl eframe::App for CryptoApp {
                 Err(error) => {
                     self.error_message = Some(error.to_string());
                     self.error_time = None;
+                }
+            }
+        }
+
+        if let Ok(result) = self.details_rx.try_recv() {
+            match result {
+                Ok(details) => {
+                    self.coin_details = Some(details);
+                }
+
+                Err(error) => {
+                    self.error_message = Some(error.to_string());
                 }
             }
         }

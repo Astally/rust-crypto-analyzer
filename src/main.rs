@@ -19,6 +19,8 @@ async fn main() -> Result<()> {
 
     let (tx, rx) = channel(1);
 
+    let (details_tx, details_rx) = channel(1);
+
     let coins = client::get_market_data(10).await?;
 
     let options = NativeOptions::default();
@@ -26,7 +28,11 @@ async fn main() -> Result<()> {
     if let Err(error) = eframe::run_native(
         "Crypto Analyzer",
         options,
-        Box::new(move |_cc| Ok(Box::new(CryptoApp::new(coins, tx, rx)))),
+        Box::new(move |_cc| {
+            Ok(Box::new(CryptoApp::new(
+                coins, tx, rx, details_tx, details_rx,
+            )))
+        }),
     ) {
         eprintln!("Failed to start GUI: {error}");
     }
