@@ -470,7 +470,7 @@ impl eframe::App for CryptoApp {
             }
         }
 
-        // home page link
+        // link
         if let Ok(result) = self.details_rx.try_recv() {
             match result {
                 Ok(details) => {

@@ -43,6 +43,20 @@ pub fn show_coin_details(
         }
     });
 
+    ui.vertical(|ui| {
+        ui.label("Whitepaper:");
+
+        if let Some(details) = details {
+            if let Some(whitepaper) = &details.links.whitepaper {
+                ui.hyperlink(whitepaper);
+            } else {
+                ui.label("No whitepaper available.");
+            }
+        } else {
+            ui.label("Loading...");
+        }
+    });
+
     ui.add_space(15.0);
 
     ui.columns(2, |columns| {

@@ -21,6 +21,7 @@ pub struct Coin {
 #[derive(Debug, Deserialize)]
 pub struct Links {
     pub homepage: Vec<String>,
+    pub whitepaper: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
