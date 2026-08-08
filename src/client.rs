@@ -78,3 +78,10 @@ pub async fn get_chart_data(coin_id: &str, time_frame: u32) -> Result<Chart> {
 
     Ok(json_response)
 }
+
+pub async fn get_coin_image(url: &str) -> Result<Vec<u8>> {
+    let response = reqwest::get(url).await?;
+    let response = response.error_for_status()?;
+
+    Ok(response.bytes().await?.to_vec())
+}

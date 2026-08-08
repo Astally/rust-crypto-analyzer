@@ -1,14 +1,26 @@
 use crate::format::{format_large_number, format_percentage, format_price, format_timestamp};
 use crate::models::{Chart, Coin, CoinDetails};
 use eframe::egui::{self, Color32};
+use egui::TextureHandle;
 use egui_plot::{Line, Plot, PlotPoints};
 
-pub fn show_coin_details(ui: &mut egui::Ui, coin: &Coin, details: &Option<CoinDetails>) {
+pub fn show_coin_details(
+    ui: &mut egui::Ui,
+    coin: &Coin,
+    details: &Option<CoinDetails>,
+    coin_texture: &Option<TextureHandle>,
+) {
     ui.add_space(15.0);
 
-    ui.vertical(|ui| {
-        ui.heading(&coin.name);
-        ui.label(coin.symbol.to_uppercase());
+    ui.horizontal(|ui| {
+        if let Some(texture) = coin_texture {
+            ui.image((texture.id(), egui::vec2(50.0, 50.0)));
+        }
+
+        ui.vertical(|ui| {
+            ui.heading(&coin.name);
+            ui.label(coin.symbol.to_uppercase());
+        });
     });
 
     ui.add_space(20.0);

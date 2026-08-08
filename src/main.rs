@@ -23,6 +23,8 @@ async fn main() -> Result<()> {
 
     let (chart_tx, chart_rx) = channel(1);
 
+    let (image_tx, image_rx) = channel(1);
+
     let coins = client::get_market_data(10).await?;
 
     let options = NativeOptions::default();
@@ -32,7 +34,7 @@ async fn main() -> Result<()> {
         options,
         Box::new(move |_cc| {
             Ok(Box::new(CryptoApp::new(
-                coins, tx, rx, details_tx, details_rx, chart_tx, chart_rx,
+                coins, tx, rx, details_tx, details_rx, chart_tx, chart_rx, image_tx, image_rx,
             )))
         }),
     ) {

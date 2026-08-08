@@ -1,6 +1,6 @@
-use crate::client::get_chart_data;
 use crate::client::get_link_data;
 use crate::client::get_market_data;
+use crate::client::{get_chart_data, get_coin_image};
 use crate::dashboard::show_coins_table;
 use crate::details::{show_coin_details, show_price_chart};
 use crate::filter;
@@ -8,6 +8,7 @@ use crate::models::{Chart, Coin, CoinDetails};
 use crate::storage::{load_favorites, save_favorites};
 use chrono::Local;
 use eframe::egui::{self, Color32};
+use egui::TextureHandle;
 use std::collections::HashSet;
 use std::time::Instant;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -24,6 +25,8 @@ pub struct CryptoApp {
     coin_details: Option<CoinDetails>,
     chart_data: Option<Chart>,
     time_frame: u32,
+    coin_image: Option<Vec<u8>>,
+    coin_texture: Option<TextureHandle>,
     current_screen: AppScreen,
 
     favorite_coins: HashSet<String>,
@@ -37,6 +40,9 @@ pub struct CryptoApp {
 
     chart_tx: Sender<anyhow::Result<Chart>>,
     chart_rx: Receiver<anyhow::Result<Chart>>,
+
+    image_tx: Sender<anyhow::Result<Vec<u8>>>,
+    image_rx: Receiver<anyhow::Result<Vec<u8>>>,
 
     error_message: Option<String>,
     error_time: Option<chrono::DateTime<Local>>,
@@ -92,6 +98,8 @@ impl CryptoApp {
         details_rx: Receiver<anyhow::Result<CoinDetails>>,
         chart_tx: Sender<anyhow::Result<Chart>>,
         chart_rx: Receiver<anyhow::Result<Chart>>,
+        image_tx: Sender<anyhow::Result<Vec<u8>>>,
+        image_rx: Receiver<anyhow::Result<Vec<u8>>>,
     ) -> Self {
         let mut error_message = None;
         let mut error_time = None;
@@ -120,6 +128,8 @@ impl CryptoApp {
             coin_details: None,
             chart_data: None,
             time_frame: 1,
+            coin_image: None,
+            coin_texture: None,
             current_screen: AppScreen::default(),
             favorite_coins: favorite_coins,
             show_filter: CoinFilter::default(),
@@ -130,6 +140,8 @@ impl CryptoApp {
             details_tx,
             chart_tx,
             chart_rx,
+            image_tx,
+            image_rx,
             error_message,
             settings: Settings {
                 auto_refresh: false,
@@ -292,6 +304,8 @@ impl CryptoApp {
         if let Some(id) = clicked_coin_id {
             self.coin_details = None;
             self.chart_data = None;
+            self.coin_image = None;
+            self.coin_texture = None;
 
             let tx = self.details_tx.clone();
             let coin_id = id.clone();
@@ -303,6 +317,24 @@ impl CryptoApp {
                     eprintln!("Failed to send result: {error}");
                 }
             });
+
+            let image_url = self
+                .coins
+                .iter()
+                .find(|coin| coin.id == id)
+                .map(|coin| coin.image.clone());
+
+            if let Some(image_url) = image_url {
+                let tx = self.image_tx.clone();
+
+                tokio::spawn(async move {
+                    let result = get_coin_image(&image_url).await;
+
+                    if let Err(error) = tx.send(result).await {
+                        eprintln!("Failed to send coin image: {error}");
+                    }
+                });
+            }
 
             let tx = self.chart_tx.clone();
             let coin_id = id.clone();
@@ -362,7 +394,7 @@ impl CryptoApp {
             return;
         };
 
-        show_coin_details(ui, coin, &self.coin_details);
+        show_coin_details(ui, coin, &self.coin_details, &self.coin_texture);
 
         ui.add_space(20.0);
 
@@ -438,6 +470,7 @@ impl eframe::App for CryptoApp {
             }
         }
 
+        // home page link
         if let Ok(result) = self.details_rx.try_recv() {
             match result {
                 Ok(details) => {
@@ -450,10 +483,43 @@ impl eframe::App for CryptoApp {
             }
         }
 
+        // chart
         if let Ok(result) = self.chart_rx.try_recv() {
             match result {
                 Ok(chart) => {
                     self.chart_data = Some(chart);
+                }
+
+                Err(error) => {
+                    self.error_message = Some(error.to_string());
+                }
+            }
+        }
+
+        // image
+        if let Ok(result) = self.image_rx.try_recv() {
+            match result {
+                Ok(image) => {
+                    let image_data = match image::load_from_memory(&image) {
+                        Ok(image) => image.to_rgba8(),
+                        Err(error) => {
+                            self.error_message = Some(error.to_string());
+                            return;
+                        }
+                    };
+
+                    let size = [image_data.width() as usize, image_data.height() as usize];
+
+                    let color_image =
+                        egui::ColorImage::from_rgba_unmultiplied(size, image_data.as_raw());
+
+                    self.coin_texture = Some(ctx.load_texture(
+                        "coin_image",
+                        color_image,
+                        egui::TextureOptions::LINEAR,
+                    ));
+
+                    self.coin_image = Some(image);
                 }
 
                 Err(error) => {
