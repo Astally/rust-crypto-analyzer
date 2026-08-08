@@ -1,6 +1,7 @@
-use crate::format::{format_large_number, format_percentage, format_price};
-use crate::models::{Coin, CoinDetails};
+use crate::format::{format_large_number, format_percentage, format_price, format_timestamp};
+use crate::models::{Chart, Coin, CoinDetails};
 use eframe::egui::{self, Color32};
+use egui_plot::{Line, Plot, PlotPoints};
 
 pub fn show_coin_details(ui: &mut egui::Ui, coin: &Coin, details: &Option<CoinDetails>) {
     ui.add_space(15.0);
@@ -103,4 +104,25 @@ pub fn show_coin_details(ui: &mut egui::Ui, coin: &Coin, details: &Option<CoinDe
             });
         });
     });
+}
+
+pub fn show_price_chart(ui: &mut egui::Ui, chart: &Chart, coin_id: &str) {
+    let points: PlotPoints = chart.prices.iter().map(|(t, p)| [*t, *p]).collect();
+
+    let line = Line::new("Price", points)
+        .color(Color32::from_rgb(38, 166, 154))
+        .width(2.0_f32);
+
+    Plot::new(format!("price_chart_{}", coin_id))
+        .height(300.0)
+        .x_axis_formatter(|ctx, _| {
+            chrono::DateTime::from_timestamp(ctx.value as i64, 0)
+                .map(|dt| dt.format("%H:%M").to_string())
+                .unwrap_or_else(|| "-".to_string())
+        })
+        .y_axis_formatter(|ctx, _| format!("${:.2}", ctx.value))
+        .label_formatter(|name, value| {
+            format!("{}\n${:.2}\n{}", name, value.y, format_timestamp(value.x))
+        })
+        .show(ui, |plot_ui| plot_ui.line(line));
 }

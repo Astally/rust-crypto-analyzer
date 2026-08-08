@@ -27,3 +27,8 @@ pub struct Links {
 pub struct CoinDetails {
     pub links: Links,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct Chart {
+    pub prices: Vec<(f64, f64)>,
+}

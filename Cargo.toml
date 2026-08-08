@@ -9,6 +9,7 @@ chrono = "0.4"
 dotenv = "0.15.0"
 eframe = "0.33.0"
 egui = "0.33.0"
+egui_plot = "0.34"
 egui_extras = "0.33"
 thousands = "0.2"
 reqwest = { version = "0.13.4", features = ["json"] }

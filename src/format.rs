@@ -44,3 +44,9 @@ pub fn format_price(price: f64) -> String {
 
     number
 }
+
+pub fn format_timestamp(timestamp: f64) -> String {
+    chrono::DateTime::from_timestamp_millis(timestamp as i64)
+        .map(|datetime| datetime.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|| "-".to_string())
+}

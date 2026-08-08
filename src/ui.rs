@@ -1,9 +1,10 @@
+use crate::client::get_chart_data;
 use crate::client::get_link_data;
 use crate::client::get_market_data;
 use crate::dashboard::show_coins_table;
-use crate::details::show_coin_details;
+use crate::details::{show_coin_details, show_price_chart};
 use crate::filter;
-use crate::models::{Coin, CoinDetails};
+use crate::models::{Chart, Coin, CoinDetails};
 use crate::storage::{load_favorites, save_favorites};
 use chrono::Local;
 use eframe::egui::{self, Color32};
@@ -21,6 +22,7 @@ pub struct CryptoApp {
 
     selected_coin_id: Option<String>,
     coin_details: Option<CoinDetails>,
+    chart_data: Option<Chart>,
     current_screen: AppScreen,
 
     favorite_coins: HashSet<String>,
@@ -31,6 +33,9 @@ pub struct CryptoApp {
 
     details_tx: Sender<anyhow::Result<CoinDetails>>,
     details_rx: Receiver<anyhow::Result<CoinDetails>>,
+
+    chart_tx: Sender<anyhow::Result<Chart>>,
+    chart_rx: Receiver<anyhow::Result<Chart>>,
 
     error_message: Option<String>,
     error_time: Option<chrono::DateTime<Local>>,
@@ -84,6 +89,8 @@ impl CryptoApp {
         rx: Receiver<anyhow::Result<Vec<Coin>>>,
         details_tx: Sender<anyhow::Result<CoinDetails>>,
         details_rx: Receiver<anyhow::Result<CoinDetails>>,
+        chart_tx: Sender<anyhow::Result<Chart>>,
+        chart_rx: Receiver<anyhow::Result<Chart>>,
     ) -> Self {
         let mut error_message = None;
         let mut error_time = None;
@@ -110,6 +117,7 @@ impl CryptoApp {
             sort_order: SortOrder::default(),
             selected_coin_id: None,
             coin_details: None,
+            chart_data: None,
             current_screen: AppScreen::default(),
             favorite_coins: favorite_coins,
             show_filter: CoinFilter::default(),
@@ -118,6 +126,8 @@ impl CryptoApp {
             tx,
             details_rx,
             details_tx,
+            chart_tx,
+            chart_rx,
             error_message,
             settings: Settings {
                 auto_refresh: false,
@@ -279,12 +289,24 @@ impl CryptoApp {
 
         if let Some(id) = clicked_coin_id {
             self.coin_details = None;
+            self.chart_data = None;
 
             let tx = self.details_tx.clone();
             let coin_id = id.clone();
 
             tokio::spawn(async move {
                 let result = get_link_data(&coin_id).await;
+
+                if let Err(error) = tx.send(result).await {
+                    eprintln!("Failed to send result: {error}");
+                }
+            });
+
+            let tx = self.chart_tx.clone();
+            let coin_id = id.clone();
+
+            tokio::spawn(async move {
+                let result = get_chart_data(&coin_id).await;
 
                 if let Err(error) = tx.send(result).await {
                     eprintln!("Failed to send result: {error}");
@@ -338,6 +360,14 @@ impl CryptoApp {
         };
 
         show_coin_details(ui, coin, &self.coin_details);
+
+        if let Some(chart) = &self.chart_data {
+            ui.add_space(20.0);
+            ui.heading("24h Price Chart");
+            show_price_chart(ui, chart, &coin.id);
+        } else {
+            ui.label("Loading chart...");
+        }
     }
 }
 
@@ -366,6 +396,18 @@ impl eframe::App for CryptoApp {
             match result {
                 Ok(details) => {
                     self.coin_details = Some(details);
+                }
+
+                Err(error) => {
+                    self.error_message = Some(error.to_string());
+                }
+            }
+        }
+
+        if let Ok(result) = self.chart_rx.try_recv() {
+            match result {
+                Ok(chart) => {
+                    self.chart_data = Some(chart);
                 }
 
                 Err(error) => {
