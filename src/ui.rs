@@ -23,6 +23,7 @@ pub struct CryptoApp {
     selected_coin_id: Option<String>,
     coin_details: Option<CoinDetails>,
     chart_data: Option<Chart>,
+    time_frame: u32,
     current_screen: AppScreen,
 
     favorite_coins: HashSet<String>,
@@ -118,6 +119,7 @@ impl CryptoApp {
             selected_coin_id: None,
             coin_details: None,
             chart_data: None,
+            time_frame: 1,
             current_screen: AppScreen::default(),
             favorite_coins: favorite_coins,
             show_filter: CoinFilter::default(),
@@ -304,9 +306,10 @@ impl CryptoApp {
 
             let tx = self.chart_tx.clone();
             let coin_id = id.clone();
+            let days = self.time_frame;
 
             tokio::spawn(async move {
-                let result = get_chart_data(&coin_id).await;
+                let result = get_chart_data(&coin_id, days).await;
 
                 if let Err(error) = tx.send(result).await {
                     eprintln!("Failed to send result: {error}");
@@ -361,9 +364,52 @@ impl CryptoApp {
 
         show_coin_details(ui, coin, &self.coin_details);
 
+        ui.add_space(20.0);
+
+        let old_time_frame = self.time_frame;
+
+        ui.horizontal(|ui| {
+            ui.heading("Price Chart");
+
+            egui::ComboBox::from_id_salt("time_frame")
+                .selected_text(match self.time_frame {
+                    1 => "1 Day",
+                    7 => "1 Week",
+                    30 => "1 Month",
+                    90 => "3 Months",
+                    180 => "6 Months",
+                    365 => "12 Month",
+                    _ => "Custom",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.time_frame, 1, "1 Day");
+                    ui.selectable_value(&mut self.time_frame, 7, "1 Week");
+                    ui.selectable_value(&mut self.time_frame, 30, "1 Month");
+                    ui.selectable_value(&mut self.time_frame, 90, "3 Months");
+                    ui.selectable_value(&mut self.time_frame, 180, "6 Months");
+                    ui.selectable_value(&mut self.time_frame, 365, "12 Months");
+                });
+        });
+
+        if old_time_frame != self.time_frame {
+            self.chart_data = None;
+
+            if let Some(id) = &self.selected_coin_id {
+                let tx = self.chart_tx.clone();
+                let coin_id = id.clone();
+                let days = self.time_frame;
+
+                tokio::spawn(async move {
+                    let result = get_chart_data(&coin_id, days).await;
+
+                    if let Err(error) = tx.send(result).await {
+                        eprintln!("Failed to send chart data: {error}");
+                    }
+                });
+            }
+        }
+
         if let Some(chart) = &self.chart_data {
-            ui.add_space(20.0);
-            ui.heading("24h Price Chart");
             show_price_chart(ui, chart, &coin.id);
         } else {
             ui.label("Loading chart...");

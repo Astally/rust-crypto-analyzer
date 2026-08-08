@@ -56,7 +56,7 @@ pub async fn get_link_data(coin_id: &str) -> Result<CoinDetails> {
     Ok(json_response)
 }
 
-pub async fn get_chart_data(coin_id: &str) -> Result<Chart> {
+pub async fn get_chart_data(coin_id: &str, time_frame: u32) -> Result<Chart> {
     let api_key = env::var("API_KEY")?;
 
     let mut headers = HeaderMap::new();
@@ -66,7 +66,7 @@ pub async fn get_chart_data(coin_id: &str) -> Result<Chart> {
 
     let response = client
         .get(format!(
-            "https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days=1"
+            "https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days={time_frame}"
         ))
         .headers(headers)
         .send()
